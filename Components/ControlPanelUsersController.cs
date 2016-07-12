@@ -1,17 +1,18 @@
-﻿using DotNetNuke.Services.Exceptions;
-using DotNetNuke.Web.Api;
-using DotNetNuke.Web.Api.Internal;
-using DotNetNuke.Entities;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text.RegularExpressions;
-using System.Web.Http;
-using DotNetNuke.Common.Utilities;
-using System.Linq;
 using System.Web;
+using System.Web.Http;
+
+using DotNetNuke.Common.Utilities;
+using DotNetNuke.Entities.Host;
+using DotNetNuke.Entities.Users;
+using DotNetNuke.Services.Exceptions;
+using DotNetNuke.Web.Api;
+using DotNetNuke.Web.Api.Internal;
 
 namespace nBrane.Modules.AdministrationSuite.Components
 {
@@ -28,14 +29,14 @@ namespace nBrane.Modules.AdministrationSuite.Components
             {
                 var objPortalSecurity = new DotNetNuke.Security.PortalSecurity();
 
-                impersonationToken = objPortalSecurity.Encrypt(DotNetNuke.Entities.Host.Host.GUID.ToString(), UserInfo.UserID + ":" + Id);
+                impersonationToken = objPortalSecurity.Encrypt(Host.GUID.ToString(), UserInfo.UserID + ":" + Id);
 
                 if (Id == 0)
                 { 
                     objPortalSecurity.SignOut();
                 }
                 else {
-                    var targetUserInfo = DotNetNuke.Entities.Users.UserController.GetUserById(PortalSettings.PortalId, Id);
+                    var targetUserInfo = UserController.GetUserById(PortalSettings.PortalId, Id);
 
                     if (targetUserInfo != null)
                     {
@@ -43,7 +44,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
 
                         objPortalSecurity.SignOut();
 
-                        DotNetNuke.Entities.Users.UserController.UserLogin(PortalSettings.PortalId, targetUserInfo, PortalSettings.PortalName, HttpContext.Current.Request.UserHostAddress, false);
+                        UserController.UserLogin(PortalSettings.PortalId, targetUserInfo, PortalSettings.PortalName, HttpContext.Current.Request.UserHostAddress, false);
                     }
                 }
 
@@ -57,7 +58,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
                 Exceptions.LogException(err);
             }
 
-            var actualResponse = Request.CreateResponse<DTO.ApiResponse<bool>>(HttpStatusCode.OK, apiResponse);
+            var actualResponse = Request.CreateResponse(HttpStatusCode.OK, apiResponse);
 
             var cookie = new HttpCookie(Common.impersonationCookieKey, impersonationToken);
             cookie.Expires = DateTime.Now.AddMinutes(Config.GetAuthCookieTimeout());
@@ -99,7 +100,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
                 }
                 else
                 {
-                    var targetUserInfo = DotNetNuke.Entities.Users.UserController.GetUserById(PortalSettings.PortalId, Id);
+                    var targetUserInfo = UserController.GetUserById(PortalSettings.PortalId, Id);
 
                     if (targetUserInfo != null)
                     {
@@ -107,7 +108,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
 
                         objPortalSecurity.SignOut();
 
-                        DotNetNuke.Entities.Users.UserController.UserLogin(PortalSettings.PortalId, targetUserInfo, PortalSettings.PortalName, HttpContext.Current.Request.UserHostAddress, false);
+                        UserController.UserLogin(PortalSettings.PortalId, targetUserInfo, PortalSettings.PortalName, HttpContext.Current.Request.UserHostAddress, false);
                     }
                 }
 
@@ -121,7 +122,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
                 Exceptions.LogException(err);
             }
 
-            var actualResponse = Request.CreateResponse<DTO.ApiResponse<bool>>(HttpStatusCode.OK, apiResponse);
+            var actualResponse = Request.CreateResponse(HttpStatusCode.OK, apiResponse);
 
 
             var newcookie = new HttpCookie(Common.impersonationCookieKey, impersonationToken);
@@ -141,11 +142,11 @@ namespace nBrane.Modules.AdministrationSuite.Components
             var apiResponse = new DTO.ApiResponse<bool>();
             try
             {
-                var userController = new DotNetNuke.Entities.Users.UserController();
+                var userController = new UserController();
 
                 if (user.Id == -1)
                 {
-                    if (!DotNetNuke.Entities.Users.UserController.ValidatePassword(user.Password))
+                    if (!UserController.ValidatePassword(user.Password))
                     {
                         apiResponse.Success = false;
                         apiResponse.Message = "Invalid Password";
@@ -154,7 +155,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
                     }
 
                     //new user
-                    var dnnUser = new DotNetNuke.Entities.Users.UserInfo();
+                    var dnnUser = new UserInfo();
                     dnnUser.Username = user.UserName;
                     dnnUser.FirstName = user.FirstName;
                     dnnUser.LastName = user.LastName;
@@ -166,13 +167,13 @@ namespace nBrane.Modules.AdministrationSuite.Components
                     dnnUser.Membership.Password = user.Password;
                     dnnUser.Membership.Approved = true;
 
-                    DotNetNuke.Entities.Users.UserController.CreateUser(ref dnnUser);
+                    UserController.CreateUser(ref dnnUser);
                     apiResponse.Success = true;
                 }
                 else
                 {
                     //existing user
-                    var dnnUser = DotNetNuke.Entities.Users.UserController.GetUserById(PortalSettings.PortalId, user.Id);
+                    var dnnUser = UserController.GetUserById(PortalSettings.PortalId, user.Id);
                     if (dnnUser != null)
                     {
                         //dnnUser.Username = user.UserName;
@@ -182,7 +183,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
                         dnnUser.Email = user.EmailAddress;
                         //dnnUser.Membership.Password = user.Password;
 
-                        DotNetNuke.Entities.Users.UserController.UpdateUser(PortalSettings.PortalId, dnnUser);
+                        UserController.UpdateUser(PortalSettings.PortalId, dnnUser);
                         apiResponse.Success = true;
                     }
                 }
@@ -206,7 +207,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
 
             try
             {
-                var userInfo = DotNetNuke.Entities.Users.UserController.GetUserById(PortalSettings.PortalId, Id);
+                var userInfo = UserController.GetUserById(PortalSettings.PortalId, Id);
                 if (userInfo != null)
                 {
                     apiResponse.CustomObject = new DTO.UserDetails();

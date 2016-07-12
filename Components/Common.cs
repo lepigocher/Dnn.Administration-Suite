@@ -1,14 +1,25 @@
-﻿using DotNetNuke.Common.Utilities;
-using DotNetNuke.Entities.Portals;
-using DotNetNuke.Services.Exceptions;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Threading.Tasks;
 using System.Web;
+
+using DotNetNuke.Common;
+using DotNetNuke.Common.Utilities;
+using DotNetNuke.Entities.Host;
+using DotNetNuke.Entities.Modules;
+using DotNetNuke.Entities.Portals;
+using DotNetNuke.Entities.Tabs;
+using DotNetNuke.Entities.Users;
+using DotNetNuke.Framework;
+using DotNetNuke.Security;
+using DotNetNuke.Security.Permissions;
+using DotNetNuke.Services.Exceptions;
+using DotNetNuke.Services.Log.EventLog;
+using DotNetNuke.UI.Skins;
 
 namespace nBrane.Modules.AdministrationSuite.Components
 {
@@ -30,17 +41,14 @@ namespace nBrane.Modules.AdministrationSuite.Components
             headers.Add("Set-Cookie", cookieBuilder.ToString());
         }
 
-
-
-        internal static DotNetNuke.Entities.Tabs.TabInfo GetParentTab(DotNetNuke.Entities.Tabs.TabInfo relativeToTab, DTO.PagePositionMode location)
+        internal static TabInfo GetParentTab(TabInfo relativeToTab, DTO.PagePositionMode location)
         {
             if (relativeToTab == null)
             {
                 return null;
             }
 
-            var tabCtrl = new DotNetNuke.Entities.Tabs.TabController();
-            DotNetNuke.Entities.Tabs.TabInfo parentTab = null;
+            TabInfo parentTab = null;
 
             if (location == DTO.PagePositionMode.ChildOf)
             {
@@ -48,6 +56,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
             }
             else if ((relativeToTab != null) && relativeToTab.ParentId != Null.NullInteger)
             {
+                var tabCtrl = new TabController();
                 parentTab = tabCtrl.GetTab(relativeToTab.ParentId, relativeToTab.PortalID, false);
             }
 
@@ -76,26 +85,29 @@ namespace nBrane.Modules.AdministrationSuite.Components
                     case "host":
                         if (SkinOrContainer.ToLower() == "skin")
                         {
-                            strRoot = DotNetNuke.Common.Globals.HostMapPath + DotNetNuke.UI.Skins.SkinController.RootSkin;
-                            dbPrefix = "[G]" + DotNetNuke.UI.Skins.SkinController.RootSkin;
+                            strRoot = Globals.HostMapPath + SkinController.RootSkin;
+                            dbPrefix = "[G]" + SkinController.RootSkin;
                         }
-                        else {
-                            strRoot = DotNetNuke.Common.Globals.HostMapPath + DotNetNuke.UI.Skins.SkinController.RootContainer;
-                            dbPrefix = "[G]" + DotNetNuke.UI.Skins.SkinController.RootContainer;
+                        else
+                        {
+                            strRoot = Globals.HostMapPath + SkinController.RootContainer;
+                            dbPrefix = "[G]" + SkinController.RootContainer;
                         }
                         break;
                     case "site":
                         if (SkinOrContainer.ToLower() == "skin")
                         {
-                            strRoot = PortalSettings.Current.HomeDirectoryMapPath + DotNetNuke.UI.Skins.SkinController.RootSkin;
-                            dbPrefix = "[L]" + DotNetNuke.UI.Skins.SkinController.RootSkin;
+                            strRoot = PortalSettings.Current.HomeDirectoryMapPath + SkinController.RootSkin;
+                            dbPrefix = "[L]" + SkinController.RootSkin;
                         }
-                        else {
-                            strRoot = PortalSettings.Current.HomeDirectoryMapPath + DotNetNuke.UI.Skins.SkinController.RootContainer;
-                            dbPrefix = "[L]" + DotNetNuke.UI.Skins.SkinController.RootContainer;
+                        else
+                        {
+                            strRoot = PortalSettings.Current.HomeDirectoryMapPath + SkinController.RootContainer;
+                            dbPrefix = "[L]" + SkinController.RootContainer;
                         }
                         break;
                 }
+
                 var siteDefault  = string.Empty;
                 if (SkinOrContainer.ToLower() == "skin")
                 {
@@ -108,7 +120,8 @@ namespace nBrane.Modules.AdministrationSuite.Components
                     siteDefault = GetFriendySkinName(PortalSettings.Current.DefaultPortalSkin);
                     currentSetting = GetFriendySkinName(currentDefault);
                 }
-                else {
+                else
+                {
                     var currentDefault = PortalSettings.Current.ActiveTab.ContainerSrc;
                     if (string.IsNullOrWhiteSpace(currentDefault))
                     {
@@ -119,14 +132,14 @@ namespace nBrane.Modules.AdministrationSuite.Components
                     currentSetting = GetFriendySkinName(currentDefault);
                 }
 
-                if (string.IsNullOrEmpty(strRoot) == false && System.IO.Directory.Exists(strRoot))
+                if (string.IsNullOrEmpty(strRoot) == false && Directory.Exists(strRoot))
                 {
                     apiResponse = new List<DTO.GenericSelectableListItem>();
-                    arrFolders = System.IO.Directory.GetDirectories(strRoot);
+                    arrFolders = Directory.GetDirectories(strRoot);
                     foreach (string strFolder_loopVariable in arrFolders)
                     {
                         strFolder = strFolder_loopVariable;
-                        arrFiles = System.IO.Directory.GetFiles(strFolder, "*.ascx");
+                        arrFiles = Directory.GetFiles(strFolder, "*.ascx");
                         foreach (string strFile_loopVariable in arrFiles)
                         {
                             strFile = strFile_loopVariable;
@@ -140,10 +153,10 @@ namespace nBrane.Modules.AdministrationSuite.Components
                             //    }
                             //    strLastFolder = strFolder;
                             //}
-                            string skinName = FormatSkinName(strFolder, System.IO.Path.GetFileNameWithoutExtension(strFile)).Replace("_", " ");
-                            bool isSelected = (bool)(skinName == currentSetting ? true : false);
+                            string skinName = FormatSkinName(strFolder, Path.GetFileNameWithoutExtension(strFile)).Replace("_", " ");
+                            bool isSelected = skinName == currentSetting ? true : false;
 
-                            apiResponse.Add(new DTO.GenericSelectableListItem(skinName, dbPrefix + "/" + strFolder + "/" + System.IO.Path.GetFileName(strFile), isSelected));
+                            apiResponse.Add(new DTO.GenericSelectableListItem(skinName, dbPrefix + "/" + strFolder + "/" + Path.GetFileName(strFile), isSelected));
                         }
                     }
                 }
@@ -154,7 +167,8 @@ namespace nBrane.Modules.AdministrationSuite.Components
                     apiResponse.Insert(0, new DTO.GenericSelectableListItem(strSeparator, "", false));
                     apiResponse.Insert(0, new DTO.GenericSelectableListItem("Default - " + siteDefault, "-1", false));
                 }
-                else {
+                else
+                {
                     apiResponse.Insert(0, new DTO.GenericSelectableListItem("ContainerNoneAvailable", "-1", false));
                 }
             }
@@ -170,9 +184,9 @@ namespace nBrane.Modules.AdministrationSuite.Components
         {
             if (!string.IsNullOrWhiteSpace(param))
             {
-                param = DotNetNuke.UI.Skins.SkinController.FormatSkinSrc(param, PortalSettings.Current);
+                param = SkinController.FormatSkinSrc(param, PortalSettings.Current);
 
-                return System.IO.Path.GetDirectoryName(param).Split(System.IO.Path.DirectorySeparatorChar).Last() + " - " + System.IO.Path.GetFileNameWithoutExtension(param).Replace("_", " ");
+                return Path.GetDirectoryName(param).Split(Path.DirectorySeparatorChar).Last() + " - " + Path.GetFileNameWithoutExtension(param).Replace("_", " ");
             }
 
             return null;
@@ -184,9 +198,10 @@ namespace nBrane.Modules.AdministrationSuite.Components
             {
                 // host folder
                 return strSkinFile;
-                // portal folder
             }
-            else {
+            else
+            {
+                // portal folder
                 switch (strSkinFile.ToLower())
                 {
                     case "skin":
@@ -199,9 +214,9 @@ namespace nBrane.Modules.AdministrationSuite.Components
             }
         }
 
-        internal static DotNetNuke.Security.Permissions.ModulePermissionInfo AddModulePermission(DotNetNuke.Entities.Modules.ModuleInfo objModule, DotNetNuke.Security.Permissions.PermissionInfo permission, int roleId, int userId, bool allowAccess)
+        internal static ModulePermissionInfo AddModulePermission(ModuleInfo objModule, PermissionInfo permission, int roleId, int userId, bool allowAccess)
         {
-            var objModulePermission = new DotNetNuke.Security.Permissions.ModulePermissionInfo();
+            var objModulePermission = new ModulePermissionInfo();
             objModulePermission.ModuleID = objModule.ModuleID;
             objModulePermission.PermissionID = permission.PermissionID;
             objModulePermission.RoleID = roleId;
@@ -221,7 +236,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
 
         internal static bool CanUserImpersonateOtherUsers()
         {
-            var objCurrentUser = DotNetNuke.Entities.Users.UserController.Instance.GetCurrentUserInfo();
+            var objCurrentUser = UserController.Instance.GetCurrentUserInfo();
 
             if (objCurrentUser.IsSuperUser || objCurrentUser.IsInRole(PortalSettings.Current.AdministratorRoleName) || IsUserImpersonated())
             {
@@ -247,6 +262,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
 
                 if (originalUserId == 0)
                     originalUserId = -1;
+
                 if (targetUserId == 0)
                     targetUserId = -1;
 
@@ -277,23 +293,22 @@ namespace nBrane.Modules.AdministrationSuite.Components
             string functionReturnValue = null;
             functionReturnValue = Null.NullString;
 
-            var objPortalSecurity = new DotNetNuke.Security.PortalSecurity();
+            var objPortalSecurity = new PortalSecurity();
 
             if (HttpContext.Current.Request.Cookies[impersonationCookieKey] != null)
             {
-                string cookieValue = objPortalSecurity.Decrypt(DotNetNuke.Entities.Host.Host.GUID.ToString(), HttpContext.Current.Request.Cookies[impersonationCookieKey].Value);
+                string cookieValue = objPortalSecurity.Decrypt(Host.GUID.ToString(), HttpContext.Current.Request.Cookies[impersonationCookieKey].Value);
 
                 functionReturnValue = cookieValue;
             }
-            return functionReturnValue;
 
+            return functionReturnValue;
         }
 
         internal static int AddExistingModule(int moduleId, int tabId, string paneName, int position, string align, string container)
         {
-
-            var objModules = new DotNetNuke.Entities.Modules.ModuleController();
-            var objEventLog = new DotNetNuke.Services.Log.EventLog.EventLogController();
+            var objModules = new ModuleController();
+            var objEventLog = new EventLogController();
 
             int UserId = PortalSettings.Current.UserId;
 
@@ -319,7 +334,7 @@ namespace nBrane.Modules.AdministrationSuite.Components
 
         internal static void AddModuleCopy(int iModuleId, int iTabId, int iOrderPosition, string sPaneName, string container)
         {
-            var objModules = new DotNetNuke.Entities.Modules.ModuleController();
+            var objModules = new ModuleController();
             var objModule = objModules.GetModule(iModuleId, iTabId, false);
             if (objModule != null)
             {
@@ -336,13 +351,13 @@ namespace nBrane.Modules.AdministrationSuite.Components
 
                 if (string.IsNullOrEmpty(newModule.DesktopModule.BusinessControllerClass) == false)
                 {
-                    object objObject = DotNetNuke.Framework.Reflection.CreateObject(newModule.DesktopModule.BusinessControllerClass, newModule.DesktopModule.BusinessControllerClass);
-                    if (objObject is DotNetNuke.Entities.Modules.IPortable)
+                    object objObject = Reflection.CreateObject(newModule.DesktopModule.BusinessControllerClass, newModule.DesktopModule.BusinessControllerClass);
+                    if (objObject is IPortable)
                     {
-                        string Content = Convert.ToString(((DotNetNuke.Entities.Modules.IPortable)objObject).ExportModule(iModuleId));
+                        string Content = Convert.ToString(((IPortable)objObject).ExportModule(iModuleId));
                         if (string.IsNullOrEmpty(Content) == false)
                         {
-                            ((DotNetNuke.Entities.Modules.IPortable)objObject).ImportModule(newModule.ModuleID, Content, newModule.DesktopModule.Version, PortalSettings.Current.UserId);
+                            ((IPortable)objObject).ImportModule(newModule.ModuleID, Content, newModule.DesktopModule.Version, PortalSettings.Current.UserId);
                         }
                     }
                 }

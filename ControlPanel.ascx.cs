@@ -16,10 +16,14 @@ using DotNetNuke.Framework.JavaScriptLibraries;
 using DotNetNuke.Framework;
 using DotNetNuke.Web.Client.ClientResourceManagement;
 using DotNetNuke.Web.Client;
+using DotNetNuke.UI.ControlPanels;
+using DotNetNuke.Entities.Portals;
+using DotNetNuke.Services.OutputCache;
+using DotNetNuke.Entities.Host;
 
 namespace nBrane.Modules.AdministrationSuite
 {
-    public partial class ControlPanel : DotNetNuke.UI.ControlPanels.ControlPanelBase
+    public partial class ControlPanel : ControlPanelBase
     {
         public override bool IsDockable { get; set; }
 
@@ -42,17 +46,14 @@ namespace nBrane.Modules.AdministrationSuite
                     JavaScript.RequestRegistration(CommonJs.jQuery);
                     JavaScript.RequestRegistration(CommonJs.Knockout);
 
-                    if (PortalSettings.UserMode != DotNetNuke.Entities.Portals.PortalSettings.Mode.View)
+                    if (PortalSettings.UserMode != PortalSettings.Mode.View)
                         JavaScript.RequestRegistration(CommonJs.DnnPlugins);
 
                     ClientResourceManager.RegisterStyleSheet(Page, "//fonts.googleapis.com/css?family=Montserrat", FileOrder.Css.ModuleCss);
                     ClientResourceManager.RegisterStyleSheet(Page, "//maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css", FileOrder.Css.ModuleCss);
                     ClientResourceManager.RegisterStyleSheet(Page, "~/desktopmodules/nbrane/administrationsuite/stylesheet.css", FileOrder.Css.ModuleCss);
-                    
-
 
                     ClientResourceManager.RegisterScript(Page, "//" + PortalSettings.PortalAlias.HTTPAlias.Replace("http://", string.Empty).Replace("https://", string.Empty) + "/desktopmodules/nbrane/administrationsuite/api/controlpanel/loadjs?name=main", FileOrder.Js.DefaultPriority);
-                    
                     ClientResourceManager.RegisterScript(Page, "//cdnjs.cloudflare.com/ajax/libs/jquery.blockUI/2.66.0-2013.10.09/jquery.blockUI.min.js", FileOrder.Js.DefaultPriority);
                 }
             }
@@ -71,16 +72,17 @@ namespace nBrane.Modules.AdministrationSuite
         {
             var tabConfigCount = 0;
             var globalConfigCount = 0;
+            var activeTab = PortalSettings.ActiveTab;
 
-            var currentOutputCacheSetting = PortalSettings.ActiveTab.TabSettings["CacheProvider"] == null ? string.Empty : PortalSettings.ActiveTab.TabSettings["CacheProvider"].ToString();
+            var currentOutputCacheSetting = activeTab.TabSettings["CacheProvider"] == null ? string.Empty : activeTab.TabSettings["CacheProvider"].ToString();
             if (!string.IsNullOrWhiteSpace(currentOutputCacheSetting))
             {
-                tabConfigCount = DotNetNuke.Services.OutputCache.OutputCachingProvider.Instance(currentOutputCacheSetting).GetItemCount(PortalSettings.ActiveTab.TabID);
+                tabConfigCount = OutputCachingProvider.Instance(currentOutputCacheSetting).GetItemCount(activeTab.TabID);
             }
 
-            if (DotNetNuke.Entities.Host.Host.PageCachingMethod != currentOutputCacheSetting)
+            if (Host.PageCachingMethod != currentOutputCacheSetting)
             {
-                globalConfigCount = DotNetNuke.Services.OutputCache.OutputCachingProvider.Instance(DotNetNuke.Entities.Host.Host.PageCachingMethod).GetItemCount(PortalSettings.ActiveTab.TabID);
+                globalConfigCount = OutputCachingProvider.Instance(Host.PageCachingMethod).GetItemCount(activeTab.TabID);
             }
 
             if (globalConfigCount > 0 || tabConfigCount > 0)
